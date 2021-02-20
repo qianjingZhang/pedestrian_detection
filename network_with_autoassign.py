@@ -74,9 +74,9 @@ class RetinaNet_Criteria(nn.Module):
         all_pred_cls = torch.sigmoid(all_pred_cls)
         all_pred_reg = torch.cat(pred_reg_list, axis=1).reshape(-1, 4*2)
         # get ground truth
-        labels, bbox_targets = retina_anchor_target(all_anchors, gt_boxes, im_info, top_k=2)
         all_pred_cls = all_pred_cls.reshape(-1, 2, config.num_classes-1)
         all_pred_reg = all_pred_reg.reshape(-1, 2, 4)
+        labels, bbox_targets = retina_anchor_target(all_anchors, all_pred_cls, all_pred_reg, gt_boxes, im_info, top_k=2)
         loss0 = emd_loss_focal(
                 all_pred_reg[:, 0], all_pred_cls[:, 0],
                 all_pred_reg[:, 1], all_pred_cls[:, 1],
@@ -250,9 +250,34 @@ def restore_bbox(rois, deltas, unnormalize=True):
     pred_bbox = bbox_transform_inv_opr(rois, deltas)
     return pred_bbox
 
+def is_inbox(bboxes, gt, center_ratio):
+    bbox_width = bbox[:, 2] - bbox[:, 0] + 1
+    bbox_height = bbox[:, 3] - bbox[:, 1] + 1
+    bbox_ctr_x = bbox[:, 0] + 0.5 * bbox_width
+    bbox_ctr_y = bbox[:, 1] + 0.5 * bbox_height
+    bbox_ctr_x = bbox_ctr_x.reshape(-1, 1).tile(1, gt.shape[0])
+    bbox_ctr_y = bbox_ctr_y.reshape(-1, 1).tile(1, gt.shape[0])
+    
+    gt_width = gt[:, 2] - gt[:, 0] + 1
+    gt_height = gt[:, 3] - gt[:, 1] + 1
+    gt_ctr_x = gt[:, 0] + 0.5 * gt_width
+    gt_ctr_y = gt[:, 1] + 0.5 * gt_height
+    gt_ctr_x = gt_ctr_x.reshape(1,-1).tile(bbox_ctr_x.shape[0], 1)
+    gt_ctr_y = gt_ctr_y.reshape(1,-1).tile(bbox_ctr_y.shape[0], 1)
+
+    if center_ratio > 0:
+        delta_x = 0.5*gt_width*center_ratio.reshape(1,-1).tile(bbox_ctr_x.shape[0], 1)
+        delta_y = 0.5*gt_height*center_ratio.reshape(1,-1).tile(bbox_ctr_y.shape[0], 1)
+        is_inside = torch.logical_and(abs(bbox_ctr_x - gt_ctr_x) <= delta_x, abs(bbox_ctr_y - gt_ctr_y) <= delta_y)
+    else:
+        delta_x = 0.5*gt_width.reshape(1,-1).tile(bbox_ctr_x.shape[0], 1)
+        delta_y = 0.5*gt_height.reshape(1,-1).tile(bbox_ctr_y.shape[0], 1)
+        is_inside = torch.logical_and(abs(bbox_ctr_x - gt_ctr_x) <= delta_x, abs(bbox_ctr_y - gt_ctr_y) <= delta_y)
+        
+    return is_inside
 
 @torch.no_grad()
-def retina_anchor_target(anchors, gt_boxes, im_info, top_k=1):
+def retina_anchor_target(anchors, pred_cls, pred_bbox, gt_boxes, im_info, top_k=1, poto_alpha=0.2, center_sampling_radius=0.5):
     total_anchor = anchors.shape[0]
     return_labels = []
     return_bbox_targets = []
@@ -260,9 +285,30 @@ def retina_anchor_target(anchors, gt_boxes, im_info, top_k=1):
     for bid in range(config.train_batch_per_gpu):
         gt_boxes_perimg = gt_boxes[bid, :int(im_info[bid, 5]), :]
         anchors = anchors.type_as(gt_boxes_perimg)
+        pred_bbox_0 = restore_bbox(anchors, pred_bbox[bid*anchors.shape[0]:(bid+1)*anchors.shape[0], 0], False)
+        pred_bbox_1 = restore_bbox(anchors, pred_bbox[bid*anchors.shape[0]:(bid+1)*anchors.shape[0], 1], False)
+        class_num = int(pred_cls.shape[-1] // 2)
+        prob_0 = pred_cls[bid*anchors.shape[0]:(bid+1)*anchors.shape[0], 0]
+        prob_1 = pred_cls[bid*anchors.shape[0]:(bid+1)*anchors.shape[0], 1]
+        ious_0 = box_overlap_opr(pred_bbox_0, gt_boxes_perimg[:, :-1]) 
+        ious_1 = box_overlap_opr(pred_bbox_1, gt_boxes_perimg[:, :-1]) 
+        quality_0 = prob**(1 - poto_alpha)*iou_0**poto_alpha
+        quality_1 = prob**(1 - poto_alpha)*iou_1**poto_alpha
+        
+        anchor_num = anchors.shape[0]
         overlaps = box_overlap_opr(anchors, gt_boxes_perimg[:, :-1])
         # gt max and indices
+        max_quality_0, gt_assignment_0 = torch.max(quality_0, axis=1)
+        max_quality_1, gt_assignment_1 = torch.max(quality_1, axis=1)
         max_overlaps, gt_assignment = overlaps.topk(top_k, dim=1, sorted=True)
+        
+        # is_in_box
+        
+        max_quality = torch.cat([max_quality_0, max_quality_1], axis=1)
+        gt_assignment_quality = torch.cat([gt_assignment_0, gt_assigment_1], axis=1)
+        max_quality = max_quality.flatten()
+        gt_assignment = gt_assignment.flatten()
+        
         max_overlaps= max_overlaps.flatten()
         gt_assignment= gt_assignment.flatten()
         _, gt_assignment_for_gt = torch.max(overlaps, axis=0)
