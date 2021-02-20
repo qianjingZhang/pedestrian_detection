@@ -1,0 +1,39 @@
+论文链接: https://arxiv.org/abs/2003.09163
+code链接: https://github.com/Purkialo/CrowdDet
+
+
+论文笔记：
+
+【1】 论文主要动机
+
+密集行人检测存在两个问题：
+
+（1）NMS后处理对召回的损害【Recall&FP间的trade-off】: 密集情况，对于高度重叠的多个物体，他们对应的inference结果也是高度重叠。使用NMS，会错误抑制这些inference结果，进而降低召回；或者，过度放宽，进而导致FP激增
+（2）label assignment对网络训练的干扰：密集物体集群中，同一个inference或许可以适配多个gt且某种程度上，每一个都是正确的；为此，强行让inference结果只对一个gt负责，会干扰网络的学习
+
+【2】过往方法
+
+（1）缓解NMS问题
+   1. NMS改进 [NMS-adaptive]
+   2. 消除NMS [rescore/detr ..]
+   3. 降低inference间的overlap [new loss]
+   4. 使用overlap少的信息【part方法】
+（2）缓解label assignment问题
+
+【3】 论文自己的方法
+
+(1) 使用Set NMS:
+
+  [1] 缓解NMS问题 -- 同一个set的结果不做抑制
+ 
+(2) 使用EMD Loss
+
+  [1]缓解label assignment问题 -- set内不进行inference结果和gt的强行绑定；而是计算所有排列组合后，取最小的loss，即取网络自己形成的最优排列组合
+
+
+【4】 带来的疑问思考
+
+(1) set的计算：什么样情况的物体可作为set?仅使用iou + 固定阈值是否过于hard?
+(2) 稀疏和稠密情况 NMS抑制怎么处理？毕竟每个点都有K个框是不进行抑制的
+(3) set中positive 部分的设定是否有优化可能？
+(4) 为何正负样本比例会对该方法的性能造成如此大的影响？
