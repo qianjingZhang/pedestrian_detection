@@ -9,7 +9,7 @@ from backbone.resnet50 import ResNet50
 from backbone.fpn import FPN
 from det_oprs.anchors_generator import AnchorGenerator
 from det_oprs.retina_anchor_target import retina_anchor_target
-from det_oprs.bbox_opr import bbox_transform_inv_opr
+from det_oprs.bbox_opr import bbox_transform_inv_opr, box_overlap_opr, bbox_transform_opr
 from det_oprs.loss_opr import emd_loss_focal
 from det_oprs.utils import get_padded_tensor
 
@@ -155,6 +155,31 @@ class RetinaNet_Head(nn.Module):
             for _ in pred_reg]
         return pred_cls_list, pred_reg_list
 
+def bbox_transform_inv_opr(bbox, deltas):
+    max_delta = math.log(1000.0 / 16)
+    """ Transforms the learned deltas to the final bbox coordinates, the axis is 1"""
+    bbox_width = bbox[:, 2] - bbox[:, 0] + 1
+    bbox_height = bbox[:, 3] - bbox[:, 1] + 1
+    bbox_ctr_x = bbox[:, 0] + 0.5 * bbox_width
+    bbox_ctr_y = bbox[:, 1] + 0.5 * bbox_height
+    pred_ctr_x = bbox_ctr_x + deltas[:, 0] * bbox_width
+    pred_ctr_y = bbox_ctr_y + deltas[:, 1] * bbox_height
+
+    dw = deltas[:, 2]
+    dh = deltas[:, 3]
+    dw = torch.clamp(dw, max=max_delta)
+    dh = torch.clamp(dh, max=max_delta)
+    pred_width = bbox_width * torch.exp(dw)
+    pred_height = bbox_height * torch.exp(dh)
+
+    pred_x1 = pred_ctr_x - 0.5 * pred_width
+    pred_y1 = pred_ctr_y - 0.5 * pred_height
+    pred_x2 = pred_ctr_x + 0.5 * pred_width
+    pred_y2 = pred_ctr_y + 0.5 * pred_height
+    pred_boxes = torch.cat((pred_x1.reshape(-1, 1), pred_y1.reshape(-1, 1),
+                            pred_x2.reshape(-1, 1), pred_y2.reshape(-1, 1)), dim=1)
+    return pred_boxes
+
 def per_layer_inference(anchors_list, pred_cls_list, pred_reg_list, im_info):
     keep_anchors = []
     keep_cls = []
@@ -224,3 +249,73 @@ def restore_bbox(rois, deltas, unnormalize=True):
         deltas = deltas + mean_opr
     pred_bbox = bbox_transform_inv_opr(rois, deltas)
     return pred_bbox
+
+
+@torch.no_grad()
+def retina_anchor_target(anchors, gt_boxes, im_info, top_k=1):
+    total_anchor = anchors.shape[0]
+    return_labels = []
+    return_bbox_targets = []
+    # get per image proposals and gt_boxes
+    for bid in range(config.train_batch_per_gpu):
+        gt_boxes_perimg = gt_boxes[bid, :int(im_info[bid, 5]), :]
+        anchors = anchors.type_as(gt_boxes_perimg)
+        overlaps = box_overlap_opr(anchors, gt_boxes_perimg[:, :-1])
+        # gt max and indices
+        max_overlaps, gt_assignment = overlaps.topk(top_k, dim=1, sorted=True)
+        max_overlaps= max_overlaps.flatten()
+        gt_assignment= gt_assignment.flatten()
+        _, gt_assignment_for_gt = torch.max(overlaps, axis=0)
+        del overlaps
+        # cons labels
+        labels = gt_boxes_perimg[gt_assignment, 4]
+        labels = labels * (max_overlaps >= config.negative_thresh)
+        ignore_mask = (max_overlaps < config.positive_thresh) * (
+                max_overlaps >= config.negative_thresh)
+        labels[ignore_mask] = -1
+        # cons bbox targets
+        target_boxes = gt_boxes_perimg[gt_assignment, :4]
+        target_anchors = anchors.repeat(1, top_k).reshape(-1, anchors.shape[-1])
+        bbox_targets = bbox_transform_opr(target_anchors, target_boxes)
+        if config.allow_low_quality:
+            labels[gt_assignment_for_gt] = gt_boxes_perimg[:, 4]
+            low_quality_bbox_targets = bbox_transform_opr(
+                anchors[gt_assignment_for_gt], gt_boxes_perimg[:, :4])
+            bbox_targets[gt_assignment_for_gt] = low_quality_bbox_targets
+        labels = labels.reshape(-1, 1 * top_k)
+        bbox_targets = bbox_targets.reshape(-1, 4 * top_k)
+        return_labels.append(labels)
+        return_bbox_targets.append(bbox_targets)
+
+    if config.train_batch_per_gpu == 1:
+        return labels, bbox_targets
+    else:
+        return_labels = torch.cat(return_labels, axis=0)
+        return_bbox_targets = torch.cat(return_bbox_targets, axis=0)
+        return return_labels, return_bbox_targets
+
+def emd_loss_softmax(p_b0, p_s0, p_b1, p_s1, targets, labels):
+    # reshape
+    pred_delta = torch.cat([p_b0, p_b1], axis=1).reshape(-1, p_b0.shape[-1])
+    pred_score = torch.cat([p_s0, p_s1], axis=1).reshape(-1, p_s0.shape[-1])
+    targets = targets.reshape(-1, 4)
+    labels = labels.long().flatten()
+    # cons masks
+    valid_masks = labels >= 0
+    fg_masks = labels > 0
+    # multiple class
+    pred_delta = pred_delta.reshape(-1, config.num_classes, 4)
+    fg_gt_classes = labels[fg_masks]
+    pred_delta = pred_delta[fg_masks, fg_gt_classes, :]
+    # loss for regression
+    localization_loss = smooth_l1_loss(
+        pred_delta,
+        targets[fg_masks],
+        config.rcnn_smooth_l1_beta)
+    # loss for classification
+    objectness_loss = softmax_loss(pred_score, labels)
+    loss = objectness_loss * valid_masks
+    loss[fg_masks] = loss[fg_masks] + localization_loss
+    loss = loss.reshape(-1, 2).sum(axis=1)
+    return loss.reshape(-1, 1)
+
