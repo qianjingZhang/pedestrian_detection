@@ -29,42 +29,80 @@ A. Abstract
 
 # C. Related Work
 
-## Anchor-based methods
+## use anchor or not
 
-### 定义
+### Anchor-based methods
+
+#### 定义
 
 placing a large number of anchors, which are regional proposals with different but fixed scales and shapes, and are uniformly distributed on the image plane
 
 These anchors are considered as proposals and an individual classifier is trained to determine the objectness as well as the class of each proposal. 
 
-### 相关文献
+#### 相关文献
 
 | 提升方向|相关论文 |
 |---|---|
 |basic quality of regional features extracted from the proposal|more powerful network backbones[13,36,14]; using hierarchical features to represent a region[23,34,27]|
 |arriving at a better alignment between the proposals and features| align anchors to features[46,47], align features to anchors[7,5], adjust the achors after classification[34,27,3]|
 
-## anchor-free methods
+### anchor-free methods
 
-### 定义
+#### 定义
 
 do not assume objects to come from uniformly distributed anchors
 
-### 相关文献
+#### 相关文献
 
 |提升方向|论文|
 |---|---|
 |keypoint-based: 预测多组关键点 + 构建关键点间联系| CornerNet[19], CenterNet[8], ExtremeNet[49]|
 |anchorpoint-based：预测多组关键点+vector表示[比如 width/height or distance]|FCOS[39], CenterNet[48], FoveaBox[17], SAPD[50]|
 
-D. Methods
+## use two-stage or one-stage
+
+### two-stage detector
+
+#### 定义
+
+RPN + OBN; RPN部分能极大缓解正负样本不均衡问题 + feature alignment问题
+
+#### 相关文献
+
+34,12,3,31,22
+
+acclerate: 使用RPN删除过滤大量FP； 6，23，12，3，31
+
+### one-stage detector
+
+33，27，24，46，5
+
+# D. Methods
+
+## 初始框架选择讨论
+
+## 框架设计
+
+### Step1: 使用Corner Keypoints完成proposals提取
+
+### Step2: 利用two-step classification 进行proposals过滤
+
+## inference设计
+
+# E. Experiments
+
+## Details
+
+## ablation study
+
+### compared with detectors
+
+### classification improves precision
+
+### inference speed
 
 
-E. Ablation Study
-
-F. Discussion
-
-# H. 下一步阅读计划
+# F. 下一步阅读计划
 
 ## adjust anchors after classification
 
