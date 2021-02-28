@@ -44,6 +44,18 @@ These anchors are considered as proposals and an individual classifier is traine
 |basic quality of regional features extracted from the proposal|more powerful network backbones[13,36,14]; using hierarchical features to represent a region[23,34,27]|
 |arriving at a better alignment between the proposals and features| align anchors to features[46,47], align features to anchors[7,5], adjust the achors after classification[34,27,3]|
 
+## anchor-free methods
+
+### 定义
+
+do not assume objects to come from uniformly distributed anchors
+
+### 相关文献
+
+|提升方向|论文|
+|---|---|
+|keypoint-based: 预测多组关键点 + 构建关键点间联系| CornerNet[19], CenterNet[8], ExtremeNet[49]|
+|anchorpoint-based：预测多组关键点+vector表示[比如 width/height or distance]|FCOS[39], CenterNet[48], FoveaBox[17], SAPD[50]|
 
 D. Methods
 
