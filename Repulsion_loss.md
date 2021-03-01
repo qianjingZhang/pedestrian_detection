@@ -37,4 +37,23 @@
 
 ## Related Work
 
-### Object 
+### Object Localization
+
+
+|论文|关键方法key| 说明|
+| --- | --- | --- |
+|10   |L1 Loss | Regression model + loss设置为 Euclidean distance|
+|9    | Smooth L1 Loss| 考虑到差异远情况下的梯度收敛问题|
+|24   | RPN| twice转换，收敛|
+|15/29| IoU Loss+anchor-free| 收敛不单纯考虑diff,而是考虑iou，更加适应评测指标|
+|4    | attraction and repulsion between object to capture the spatial arrangements of various object classes|
+
+
+### Pedestrian Detection
+
+|论文|方法key|说明|
+| ---|---|---|
+|[5,22,32]|传统方法，使用Integral Channel Features|sliding window + handcrafted features|
+|[28,30]|deep features + ML methods|特征提取方面的优化|
+|[23,27,34]|part-based methods|针对遮挡的专门优化|
+|[13]|robustness of NMS|针对NMS的优化，使用了额外网络|
