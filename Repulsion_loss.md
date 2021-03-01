@@ -57,3 +57,36 @@
 |[28,30]|deep features + ML methods|特征提取方面的优化|
 |[23,27,34]|part-based methods|针对遮挡的专门优化|
 |[13]|robustness of NMS|针对NMS的优化，使用了额外网络|
+
+
+## Impact of crowd occlusion
+
+### preliminaries
+
+///
+
+### Analysis on Failure Cases
+
+
+#### Miss
+|研究问题|评测说明|方案说明|
+| --- | --- | --- |
+|**occlusion定义**|occ = 1 - area(box_visible)/area(bbox)|occ>=0.1: occlusion case; occ >= 0.1 & IoU >= 0.1: crowd occlusion|
+
+- **评测数据集**: 设置问题定义之后，划分成不同类型数据集； the reasonable-occ subset, consisting of 810 occlusion cases (51.3%) and the reasonable-crowd
+subset, consisting of 479 crowd occlusion cases (30.3%).
+
+- **不同评测指标**： 在不同recall/fp下， 由研究问题导致的detection占比
+
+
+#### False Positive
+
+FP分析采用统计分类的方式：Background(true fp), localization(reg fp) and crowd error(multi_fp)
+
+看导致FP的crowd数量
+
+
+
+
+
+
