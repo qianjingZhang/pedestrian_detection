@@ -87,6 +87,18 @@ FP分析采用统计分类的方式：Background(true fp), localization(reg fp) 
 
 
 
+## Repulsion Loss
+
+![image](https://user-images.githubusercontent.com/26115141/109487916-d40e9600-7abf-11eb-8298-2ee12f567236.png)
+
+|Loss |说明 |
+|---| ---|
+|L_{attr}|attraction item:a predicted box approach its designated target|
+|L_{RepBox}&L_{RepGT}|repulsion terms: require a predicted box to keep away from other surrounding gt and predicted box without same target|
+
+
+
+
 
 
 
