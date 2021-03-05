@@ -97,6 +97,58 @@ FP分析采用统计分类的方式：Background(true fp), localization(reg fp) 
 |L_{RepBox}&L_{RepGT}|repulsion terms: require a predicted box to keep away from other surrounding gt and predicted box without same target|
 
 
+### 描述
+
+- proposals: P = (lp, tp, wp,hp)
+- gtboxes: G = (lG,tG, wG, hG)
+- pos proposals: P+ = {P} iou>=0.5的一批anchors
+- gt sets: g = {G} 
+
+#### Attraction Term
+
+- motivation:
+
+Narrow the gap between predicted boxes and groundtruth boxes
+
+- measurement methods
+  - 欧式距离
+  - SmoothL1 Loss
+  - IoU Loss
+- Loss技术
+  - GT获取： 使用IoU计算最大值，完成Gt分配
+  - measurement: smoothL1
+
+![image](https://user-images.githubusercontent.com/26115141/110114192-31bc1e80-7def-11eb-98f8-3615b84fc150.png)
+
+#### Repulsion Term
+
+##### RepGT
+
+- motivation:
+repel a proposal from its neighboring gt boxes which are not its target
+
+- GT定义：
+
+除了gt label以外， IoU最大的那个gtbox
+
+![image](https://user-images.githubusercontent.com/26115141/110114680-00901e00-7df0-11eb-97ff-8f3131b83e7e.png)
+
+- Loss :
+  - smoothl1
+      ![image](https://user-images.githubusercontent.com/26115141/110118207-f91f4380-7df4-11eb-9567-3c9664ccd56c.png)
+
+  - smoothln
+      ![image](https://user-images.githubusercontent.com/26115141/110117345-af822900-7df3-11eb-8e6f-9ccd70a0a4f7.png)
+
+
+
+
+
+##### RepBox
+
+
+
+
 
 
 
