@@ -116,7 +116,41 @@ anchor-free方法对size和shape有更大灵活性，相对可以有更高recall
 
 ### D.2.1 Step1: 使用Corner Keypoints完成proposals提取
 
+[1] follow CornerNet to locate an object with a pair of keypoints located in its top-left and bottom-reight corners
+
+#### Step1.1: 计算keypoints
+
+[2] For each class, 计算 two heatmaps [top-left heatmap and bottom-right heatmap], heatmap上每个点的值代表的是该点是此类型物体的概率
+
+[3] 根据heatmap, 有两类型loss被计算。一、 Loss_det_corner 表示heatmap的关键点位置； Loss_offset 学习的是offset to the accurate corner position
+
+[4] 对于heatmaps提取固定数量的keypoints. K top-left & K bottom-right
+
+#### Step1.2: 完成keypoints的配对
+
+[1] 每个valid pair of keypoints 定义了 object proposal. 
+[2] 此处为了尽可能提高召回，不选择用cornernet的方式来处理；而是，只要top-left point和bottom-right point属于同一类物体，而且top-left point在bottom-right point的左上角，就认为他们属于同一个物体
+
 ### D.2.2 Step2: 利用two-step classification 进行proposals过滤
+
+[1]用一个轻量的分类器，删除80%的proposal
+
+[2] 之后使用一个refine classifier 对剩余的proposals判断class
+
+#### Step2.1: 使用filter判断 Two-step classification for filtering proposals
+![image](https://user-images.githubusercontent.com/26115141/110132939-a8184b00-7e06-11eb-94f6-41d3994f0382.png)
+
+首先， 我们采用RoIAlign, 使用1个7x7的kernel来提取每个proposal的特征
+
+之后，一个 32x7x7的conv layer来获取每个proposal的分类score. 
+
+确实实现了 基于size/距离的筛选，
+
+因为，IoUm其实就考虑了距离和size 从而计算正样本
+
+#### Step2.2: 使用一个精修的classifier实现分类
+#### Step2.2
+
 
 ## D.3 inference设计
 
