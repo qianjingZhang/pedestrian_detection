@@ -140,11 +140,49 @@ repel a proposal from its neighboring gt boxes which are not its target
   - smoothln
       ![image](https://user-images.githubusercontent.com/26115141/110117345-af822900-7df3-11eb-8e6f-9ccd70a0a4f7.png)
 
+- 示意图：
 
-
-
+![image](https://user-images.githubusercontent.com/26115141/110118895-fc66ff00-7df5-11eb-8e3a-007c9925569c.png)
 
 ##### RepBox
+
+惩罚每一对匹配结果
+
+![image](https://user-images.githubusercontent.com/26115141/110119149-5798f180-7df6-11eb-820e-fedc97f90d9d.png)
+
+此处使用IoU
+
+
+## Discussion
+
+### 为什么在rep项里面不使用smoothL1而是使用IoG或者IoU？
+
+主要是从动机或者目的进行反推。首先，他使用rep的目的是因为，在NMS部分，希望他们不要因为纠缠在一起被抑制
+
+为此，他们不要物理距离上尽可能远离；而是，需要overlap尽可能小
+
+
+### repGT为何使用IoU而不是用IoG?
+
+- 使用IoU-loss:
+  - 可能会变成增大Bp U GPreg, 即增大Bp的size   
+- 使用IoG-loss:
+  - 单纯优化Bp 和 Gp交集
+
+
+### Smooth Parameter
+
+ajust the sensitiveness of the repulsion loss to the outliers by the smooth parameter
+
+![image](https://user-images.githubusercontent.com/26115141/110120983-be1f0f00-7df8-11eb-89ec-994a6b08df44.png)
+
+
+## Ablation Study
+
+【1】分析RepGT/RepBox的Loss，他们对outlier的敏感性
+【2】分析他们对FP和Miss的影响
+
+
 
 
 
